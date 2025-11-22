@@ -4,6 +4,7 @@ version = 0.1
 
 [default.global.parameters]
 stack_name = "chaser-destroyer"
+region = "ap-south-1"
 
 [default.build.parameters]
 cached = true
@@ -11,6 +12,58 @@ parallel = true
 
 [default.validate.parameters]
 lint = true
+
+# -----------------------------------
+# DEV ENVIRONMENT
+# -----------------------------------
+[dev.deploy.parameters]
+stack_name = "chaser-destroyer-dev"
+s3_prefix = "chaser-destroyer-dev"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = [
+  "Environment=dev",
+  "ProjectName=chaser-destroyer",
+  "BaseProjectName=chaser",
+  "Cpu=256",
+  "Memory=512"
+]
+
+# -----------------------------------
+# STAGING ENVIRONMENT
+# -----------------------------------
+[staging.deploy.parameters]
+stack_name = "chaser-destroyer-staging"
+s3_prefix = "chaser-destroyer-staging"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = [
+  "Environment=staging",
+  "ProjectName=chaser-destroyer",
+  "BaseProjectName=chaser",
+  "Cpu=256",
+  "Memory=512"
+]
+
+# -----------------------------------
+# PROD ENVIRONMENT
+# -----------------------------------
+[stagproding.deploy.parameters]
+stack_name = "chaser-destroyer-prod"
+s3_prefix = "chaser-destroyer-prod"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = [
+  "Environment=prod",
+  "ProjectName=chaser-destroyer",
+  "BaseProjectName=chaser",
+  "Cpu=256",
+  "Memory=512"
+]
+
 
 [default.deploy.parameters]
 capabilities = "CAPABILITY_IAM"
