@@ -1,61 +1,203 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: >
-  chaser-destroyer
-
-  Sample SAM Template for chaser-destroyer
 
 Parameters:
   Environment:
     Type: String
-    Description: Deployment environment (e.g., dev, prod)
   ProjectName:
     Type: String
-    Description: Name of the project
   BaseProjectName:
     Type: String
-    Description: Base name of the project
   ScheduleExpression:
     Type: String
-    Description: "EventBridge cron/rate expression"
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 3
-
-    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
-    LoggingConfig:
-      LogFormat: JSON
-
+    Runtime: python3.13
+    Timeout: 10
     Environment:
       Variables:
         ENVIRONMENT: !Ref Environment
         PROJECT_NAME: !Ref ProjectName
         BASE_PROJECT_NAME: !Ref BaseProjectName
+        DEFAULT_REGION: !Ref AWS::Region
+
 Resources:
-  HelloWorldFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+
+  DeleteStackFunction:
+    Type: AWS::Serverless::Function
     Properties:
-      CodeUri: hello_world/
-      Handler: app.lambda_handler
-      Runtime: python3.13
-      Architectures:
-      - x86_64
+      CodeUri: lambdas/destroy/
+      Handler: delete_stack.lambda_handler
+      Policies:
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
+
+
+  CheckStackFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/destroy/
+      Handler: check_stack.lambda_handler
+      Policies:
+        - arn:aws:iam::aws:policy/AWSCloudFormationReadOnlyAccess
+
+  SchedulerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambdas/scheduler/
+      Handler: scheduler.lambda_handler
       Events:
-        ScheduledRule:
+        RunSchedule:
           Type: Schedule
           Properties:
             Schedule: !Ref ScheduleExpression
             Enabled: true
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref DestroyStateMachine
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action:
+              - states:StartExecution
+            Resource: !GetAtt DestroyStateMachine.Arn
 
-Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
-  HelloWorldFunction:
-    Description: Hello World Lambda Function ARN
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: Implicit IAM Role created for Hello World function
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+  DestroyStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Definition:
+        StartAt: DeleteBackend
+        States:
+
+          DeleteBackend:
+            Type: Task
+            Resource: !GetAtt DeleteStackFunction.Arn
+            Parameters:
+              project.$: "$.project"
+              stage.$: "$.stage"
+              type: "backend"
+            Next: WaitBackend
+
+          WaitBackend:
+            Type: Wait
+            Seconds: 20
+            Next: CheckBackend
+
+          CheckBackend:
+            Type: Task
+            Resource: !GetAtt CheckStackFunction.Arn
+            Parameters:
+              project.$: "$.project"
+              stage.$: "$.stage"
+              type: "backend"
+            Next: BackendStatus
+
+          BackendStatus:
+            Type: Choice
+            Choices:
+              - Variable: "$.status"
+                StringEquals: "DELETE_COMPLETE"
+                Next: DeleteFrontend
+            Default: WaitBackend
+
+          DeleteFrontend:
+            Type: Task
+            Resource: !GetAtt DeleteStackFunction.Arn
+            Parameters:
+              project.$: "$.project"
+              stage.$: "$.stage"
+              type: "frontend"
+            Next: WaitFrontend
+
+          WaitFrontend:
+            Type: Wait
+            Seconds: 20
+            Next: CheckFrontend
+
+          CheckFrontend:
+            Type: Task
+            Resource: !GetAtt CheckStackFunction.Arn
+            Parameters:
+              project.$: "$.project"
+              stage.$: "$.stage"
+              type: "frontend"
+            Next: FrontendStatus
+
+          FrontendStatus:
+            Type: Choice
+            Choices:
+              - Variable: "$.status"
+                StringEquals: "DELETE_COMPLETE"
+                Next: DeleteCore
+            Default: WaitFrontend
+
+          DeleteCore:
+            Type: Task
+            Resource: !GetAtt DeleteStackFunction.Arn
+            Parameters:
+              project.$: "$.project"
+              stage.$: "$.stage"
+              type: "core"
+            Next: WaitCore
+
+          WaitCore:
+            Type: Wait
+            Seconds: 20
+            Next: CheckCore
+
+          CheckCore:
+            Type: Task
+            Resource: !GetAtt CheckStackFunction.Arn
+            Parameters:
+              project.$: "$.project"
+              stage.$: "$.stage"
+              type: "core"
+            Next: CoreStatus
+
+          CoreStatus:
+            Type: Choice
+            Choices:
+              - Variable: "$.status"
+                StringEquals: "DELETE_COMPLETE"
+                Next: DeleteWAF
+            Default: WaitCore
+
+          DeleteWAF:
+            Type: Task
+            Resource: !GetAtt DeleteStackFunction.Arn
+            Parameters:
+              project.$: "$.project"
+              stage.$: "$.stage"
+              type: "waf"
+            Next: WaitWAF
+
+          WaitWAF:
+            Type: Wait
+            Seconds: 20
+            Next: CheckWAF
+
+          CheckWAF:
+            Type: Task
+            Resource: !GetAtt CheckStackFunction.Arn
+            Parameters:
+              project.$: "$.project"
+              stage.$: "$.stage"
+              type: "waf"
+            Next: WAFStatus
+
+          WAFStatus:
+            Type: Choice
+            Choices:
+              - Variable: "$.status"
+                StringEquals: "DELETE_COMPLETE"
+                Next: Done
+            Default: WaitWAF
+
+          Done:
+            Type: Succeed
+
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref DeleteStackFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref CheckStackFunction

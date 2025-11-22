@@ -28,7 +28,7 @@ parameter_overrides = [
   "BaseProjectName=chaser",
   "Cpu=256",
   "Memory=512",
-  'ScheduleExpression="rate(3 minutes)"'
+  'ScheduleExpression="cron(30 10 * * ? *)"'
 ]
 
 # -----------------------------------
