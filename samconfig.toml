@@ -27,7 +27,8 @@ parameter_overrides = [
   "ProjectName=chaser-destroyer",
   "BaseProjectName=chaser",
   "Cpu=256",
-  "Memory=512"
+  "Memory=512",
+  'ScheduleExpression="rate(3 minutes)"'
 ]
 
 # -----------------------------------
@@ -44,13 +45,14 @@ parameter_overrides = [
   "ProjectName=chaser-destroyer",
   "BaseProjectName=chaser",
   "Cpu=256",
-  "Memory=512"
+  "Memory=512",
+  'ScheduleExpression="cron(30 10 * * ? *)"'
 ]
 
 # -----------------------------------
 # PROD ENVIRONMENT
 # -----------------------------------
-[stagproding.deploy.parameters]
+[prod.deploy.parameters]
 stack_name = "chaser-destroyer-prod"
 s3_prefix = "chaser-destroyer-prod"
 capabilities = "CAPABILITY_IAM"
@@ -61,7 +63,8 @@ parameter_overrides = [
   "ProjectName=chaser-destroyer",
   "BaseProjectName=chaser",
   "Cpu=256",
-  "Memory=512"
+  "Memory=512",
+  'ScheduleExpression="cron(30 10 * * ? *)"'
 ]
 
 
