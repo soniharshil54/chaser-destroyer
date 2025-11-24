@@ -52,6 +52,11 @@ Resources:
           Properties:
             Schedule: !Ref ScheduleExpression
             Enabled: true
+        RunSchedule2amIST:
+          Type: Schedule
+          Properties:
+            Schedule: cron(30 20 * * ? *)      # static second schedule 2:00 AM IST = 20:30 (8:30 PM) UTC (previous day)
+            Enabled: true
       Environment:
         Variables:
           STATE_MACHINE_ARN: !Ref DestroyStateMachine
