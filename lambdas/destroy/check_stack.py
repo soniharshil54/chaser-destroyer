@@ -19,7 +19,7 @@ def lambda_handler(event, context):
         region = os.environ.get("DEFAULT_REGION", "ap-south-1")
 
     elif type_ == "waf":
-        stack_name = f"{project}-{stage}-waf"
+        stack_name = f"{project}-waf-{stage}"
         region = "us-east-1"
 
     cf = boto3.client("cloudformation", region_name=region)
